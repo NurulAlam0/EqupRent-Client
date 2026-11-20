@@ -46,8 +46,11 @@ type AuthContextValue = AuthActions & {
   user: AuthUser | null | undefined;
 };
 
-/** Base URL of the Express API (configured via environment variable). */
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5050";
+/** Base URL of the Express API (empty in production so calls go through Next.js rewrite). */
+export const API_URL =
+  process.env.NODE_ENV === "production"
+    ? ""
+    : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5050");
 
 const TOKEN_KEY = "rentora:token";
 const AUTH_EVENT = "rentora:auth-change";
@@ -137,7 +140,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     });
   } catch {
     throw new Error(
-      "Cannot reach the server. Make sure the API is running on " + API_URL
+      API_URL
+        ? "Cannot reach the server. Make sure the API is running on " + API_URL
+        : "Cannot reach the server. Please check your connection."
     );
   }
   const data = (await res.json().catch(() => null)) as

@@ -34,6 +34,11 @@ No test framework, CI, or pre-commit config exists.
     (SSR renders `undefined` to avoid hydration mismatch).
   - The client keeps the JWT in localStorage/sessionStorage (`rentora:token`); the proxy guard instead
     trusts the `access_token` httpOnly cookie. The two stores are intentionally different.
+  - **First-party cookie & `/api` rewrite**: In production, the client and Express API are on different
+    domains. To avoid cross-origin cookie loss (where the API sets `access_token` on its own domain,
+    leaving `proxy.ts` on the frontend unable to read it and causing an auth redirect loop), all browser
+    API requests go to same-origin `/api/...` and are proxied via `rewrites()` in `next.config.ts` to
+    `BACKEND_URL`. This ensures the cookie is set on the frontend domain as a first-party cookie.
 - `app/` routes are thin wrappers. Real UI lives in `components/`:
   - `layout/` — global navigation & shell (`header.tsx`, `footer.tsx`)
   - `home/` — landing/marketing sections (`hero.tsx`, `featured.tsx`, `categories.tsx`, `why-choose-us.tsx`, `popular.tsx`, `how-it-works.tsx`, `reviews.tsx`)
@@ -54,5 +59,9 @@ No test framework, CI, or pre-commit config exists.
 - `next.config.ts`: `cacheComponents: true`, `experimental.agentFeedback: true`, Tailwind v4 loaded via
   the `@tailwindcss/turbopack` rule (no `tailwind.config` file), and images allow any https host
   (users paste their own photo URLs).
-- `.env` is gitignored; the only variable the code reads is `NEXT_PUBLIC_API_URL` (falls back to
-  `http://localhost:5050`). Other keys present (`BETTER_AUTH_*`, `MONGODB_URI`) are unreferenced.
+- `.env` is gitignored; environment variables used:
+  - `BACKEND_URL`: URL of the Express API (e.g. `https://api.rentora.dev`, no trailing slash). Used by
+    `next.config.ts` for the `/api/:path*` rewrite and by `proxy.ts` for server-side role verification.
+  - `NEXT_PUBLIC_API_URL`: Fallback for local development (`http://localhost:5050`). In production,
+    `lib/auth-context.tsx` uses `""` so all browser requests route through the `/api` rewrite on the same origin.
+  - Other keys present (`BETTER_AUTH_*`, `MONGODB_URI`) are unreferenced.

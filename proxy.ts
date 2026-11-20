@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5050";
+const API_URL =
+  process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5050";
 
 /**
  * Asks the API to validate the JWT cookie and return the user's role.
