@@ -79,13 +79,13 @@ For production, configure the API with:
 
 ```dotenv
 CLIENT_URL=https://equp-rent-client.vercel.app
-GOOGLE_REDIRECT_URI=https://equp-rent-client.vercel.app/backend-api/auth/google/callback
+SERVER_URL=https://equip-rent-server-pi.vercel.app
+GOOGLE_REDIRECT_URI=https://equip-rent-server-pi.vercel.app/api/auth/google/callback
 ```
 
 Add the same `GOOGLE_REDIRECT_URI` value to the OAuth client's authorized
 redirect URIs in Google Cloud, and set `BACKEND_URL` in the frontend's Vercel
-environment to the Express API origin. The callback goes through the frontend
-proxy so the API session cookie is available to the app.
+environment to the Express API origin.
 
 ## Available commands
 

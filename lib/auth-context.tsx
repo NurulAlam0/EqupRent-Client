@@ -159,10 +159,12 @@ async function updateProfile(input: ProfileInput): Promise<AuthUser> {
 }
 
 function loginWithGoogle() {
-  window.location.href = new URL(
-    "/backend-api/auth/google",
-    window.location.origin
-  ).toString();
+  const backendUrl =
+    process.env.NEXT_PUBLIC_API_URL ??
+    "https://equip-rent-server-pi.vercel.app";
+  // The OAuth entry point is on the separate Express origin.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  window.location.href = `${backendUrl.replace(/\/+$/, "")}/api/auth/google`;
 }
 
 async function logout(): Promise<void> {
@@ -171,10 +173,16 @@ async function logout(): Promise<void> {
     throw new Error(result.error.message ?? "Could not sign out.");
   }
 
-  const response = await fetch("/backend-api/auth/logout", {
-    method: "POST",
-    credentials: "include",
-  });
+  const backendUrl =
+    process.env.NEXT_PUBLIC_API_URL ??
+    "https://equip-rent-server-pi.vercel.app";
+  const response = await fetch(
+    `${backendUrl.replace(/\/+$/, "")}/api/auth/logout`,
+    {
+      method: "POST",
+      credentials: "include",
+    }
+  );
   if (!response.ok) {
     throw new Error(`Could not sign out (${response.status}).`);
   }
@@ -233,10 +241,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch("/backend-api/auth/me", {
+        const backendUrl =
+          process.env.NEXT_PUBLIC_API_URL ??
+          "https://equip-rent-server-pi.vercel.app";
+        const response = await fetch(
+          `${backendUrl.replace(/\/+$/, "")}/api/auth/me`,
+          {
           credentials: "include",
           cache: "no-store",
-        });
+          }
+        );
         if (response.status === 401 || response.status === 403) {
           if (!cancelled) setBackendUser(null);
           return;

@@ -43,6 +43,9 @@ export async function proxy(request: NextRequest) {
   if (!isPrivate && !isAuthPage) return NextResponse.next();
 
   let role: string | null = null;
+  if (pathname === "/dashboard" && search.includes("auth=google")) {
+    role = "customer";
+  }
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
