@@ -152,7 +152,7 @@ export function EquipmentCard({ item }: { item: EquipmentItem }) {
         </p>
 
         {/* Price + action pinned to the bottom so all cards align */}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+        <div className="mt-auto flex flex-col items-start gap-3 border-t border-slate-100 pt-4">
           <p>
             <span className="text-xl font-bold text-blue-600">
               ৳{item.rentalPrice.toLocaleString("en-US")}
