@@ -8,11 +8,10 @@ import { Camera, Check, Eye, EyeOff, Lock, Mail, User, X } from "lucide-react";
 import { cn } from "cn";
 import { useAuth } from "@/lib/auth-context";
 import { FormField } from "@/components/auth/form-field";
-import { GoogleIcon } from "@/components/auth/google-icon";
 
 export function RegisterForm() {
   const router = useRouter();
-  const { register, loginWithGoogle, user } = useAuth();
+  const { register, user } = useAuth();
 
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -46,11 +45,6 @@ export function RegisterForm() {
       );
       setSubmitting(false);
     }
-  };
-
-  const handleGoogle = () => {
-    // Full-page redirect to the server's Google OAuth flow.
-    loginWithGoogle();
   };
 
   return (
@@ -145,21 +139,6 @@ export function RegisterForm() {
           {submitting ? "Creating account…" : "Create account"}
         </button>
       </form>
-
-      <div className="my-3.5 flex items-center gap-3">
-        <span className="h-px flex-1 bg-slate-200" />
-        <span className="text-xs font-semibold text-slate-400">or</span>
-        <span className="h-px flex-1 bg-slate-200" />
-      </div>
-
-      <button
-        type="button"
-        onClick={handleGoogle}
-        className="flex h-11 w-full items-center justify-center gap-3 rounded-full bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800"
-      >
-        <GoogleIcon className="size-5" />
-        Continue with Google
-      </button>
 
       <p className="mt-4 text-center text-sm text-slate-500">
         Already have an account?{" "}

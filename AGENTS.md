@@ -44,7 +44,7 @@ No test framework, CI, or pre-commit config exists.
   - `home/` — landing/marketing sections (`hero.tsx`, `featured.tsx`, `categories.tsx`, `why-choose-us.tsx`, `popular.tsx`, `how-it-works.tsx`, `reviews.tsx`)
   - `equipment/` — equipment cards, browser, details, reviews, and listing form (`equipment-card.tsx`, `equipment-browser.tsx`, `equipment-details.tsx`, `equipment-reviews.tsx`, `add-equipment-form.tsx`)
   - `dashboard/` — role-based dashboard views (`dashboard-view.tsx`, `admin-dashboard.tsx`, `owner-dashboard.tsx`, `customer-dashboard.tsx`)
-  - `auth/` — authentication views and inputs (`login-form.tsx`, `register-form.tsx`, `auth-shell.tsx`, `form-field.tsx`, `google-icon.tsx`)
+  - `auth/` — authentication views and inputs (`login-form.tsx`, `register-form.tsx`, `auth-shell.tsx`, `form-field.tsx`)
   - `about/` — about page content (`about-content.tsx`)
   - `payment/` — payment status screens (`payment-success.tsx`, `payment-cancelled.tsx`)
   - `shared/` — shared exports and common wrappers

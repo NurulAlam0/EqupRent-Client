@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { authClient } from "@/lib/auth-client";
 
 export type UserRole = "customer" | "owner" | "admin";
 
@@ -32,8 +33,6 @@ type ProfileInput = Pick<AuthUser, "name" | "photo" | "phoneNumber" | "address">
 type AuthActions = {
   register: (input: RegisterInput) => Promise<AuthUser>;
   login: (input: LoginInput) => Promise<AuthUser>;
-  /** Redirects the browser to the server's Google OAuth entry point. */
-  loginWithGoogle: () => void;
   updateProfile: (input: ProfileInput) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
@@ -52,72 +51,8 @@ export const API_URL =
     ? ""
     : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5050");
 
-const TOKEN_KEY = "rentora:token";
-const AUTH_EVENT = "rentora:auth-change";
-
 /* ------------------------------------------------------------------ */
-/* JWT storage (localStorage when "keep me signed in", else session)    */
-/* ------------------------------------------------------------------ */
-
-function readToken(): string | null {
-  try {
-    return (
-      window.localStorage.getItem(TOKEN_KEY) ??
-      window.sessionStorage.getItem(TOKEN_KEY)
-    );
-  } catch {
-    return null;
-  }
-}
-
-function saveToken(token: string, persist: boolean) {
-  try {
-    window.localStorage.removeItem(TOKEN_KEY);
-    window.sessionStorage.removeItem(TOKEN_KEY);
-    (persist ? window.localStorage : window.sessionStorage).setItem(
-      TOKEN_KEY,
-      token
-    );
-  } catch {
-    // Storage unavailable — the httpOnly cookie still keeps the session alive.
-  }
-}
-
-function clearToken() {
-  try {
-    window.localStorage.removeItem(TOKEN_KEY);
-    window.sessionStorage.removeItem(TOKEN_KEY);
-  } catch {
-    // ignore
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/* External store: no setState, so no hydration mismatch               */
-/* ------------------------------------------------------------------ */
-
-let currentUser: AuthUser | null | undefined = undefined;
-
-function getSnapshot(): AuthUser | null | undefined {
-  return currentUser;
-}
-
-function getServerSnapshot(): AuthUser | null | undefined {
-  return undefined;
-}
-
-function subscribe(onStoreChange: () => void): () => void {
-  window.addEventListener(AUTH_EVENT, onStoreChange);
-  return () => window.removeEventListener(AUTH_EVENT, onStoreChange);
-}
-
-function setSession(user: AuthUser | null) {
-  currentUser = user;
-  window.dispatchEvent(new Event(AUTH_EVENT));
-}
-
-/* ------------------------------------------------------------------ */
-/* API helper — attaches the JWT, surfaces server error messages        */
+/* API helper — sends Better Auth cookies and surfaces server errors   */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -126,7 +61,6 @@ function setSession(user: AuthUser | null) {
  * share one authenticated request path instead of re-implementing it.
  */
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = readToken();
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
@@ -134,7 +68,6 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
     });
@@ -184,16 +117,14 @@ async function register(input: RegisterInput): Promise<AuthUser> {
     throw new Error("Password must be at least 6 characters long.");
   }
 
-  const data = await api<{ token: string; user: AuthUser }>(
-    "/api/auth/register",
-    {
-      method: "POST",
-      body: JSON.stringify({ name, email, photo, password: input.password }),
-    }
-  );
-  saveToken(data.token, true);
-  setSession(data.user);
-  return data.user;
+  const result = await authClient.signUp.email({
+    name,
+    email,
+    password: input.password,
+    image: photo,
+  });
+  if (result.error) throw new Error(result.error.message ?? "Registration failed.");
+  return mapBetterAuthUser(result.data?.user);
 }
 
 async function login(input: LoginInput): Promise<AuthUser> {
@@ -203,89 +134,91 @@ async function login(input: LoginInput): Promise<AuthUser> {
   }
   if (!input.password) throw new Error("Please enter your password.");
 
-  const data = await api<{ token: string; user: AuthUser }>("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify({
-      email,
-      password: input.password,
-      keepSignedIn: input.keepSignedIn,
-    }),
+  const result = await authClient.signIn.email({
+    email,
+    password: input.password,
+    rememberMe: input.keepSignedIn,
+    callbackURL: "/dashboard",
   });
-  saveToken(data.token, input.keepSignedIn);
-  setSession(data.user);
-  return data.user;
+  if (result.error) throw new Error(result.error.message ?? "Sign in failed.");
+  return mapBetterAuthUser(result.data?.user);
 }
 
 async function updateProfile(input: ProfileInput): Promise<AuthUser> {
-  const data = await api<{ user: AuthUser }>("/api/auth/me", {
-    method: "PUT",
-    body: JSON.stringify(input),
+  const result = await authClient.updateUser({
+    name: input.name,
+    image: input.photo,
+    phoneNumber: input.phoneNumber,
+    address: input.address,
   });
-  setSession(data.user);
-  return data.user;
-}
-
-function loginWithGoogle() {
-  // Full-page navigation to another origin (the Express API's OAuth entry
-  // point) — not an internal Next.js route, so window.location is correct.
-  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  window.location.href = `${API_URL}/api/auth/google`;
+  if (result.error) throw new Error(result.error.message ?? "Profile update failed.");
+  const session = await authClient.getSession();
+  if (session.error) throw new Error(session.error.message ?? "Profile update failed.");
+  return mapBetterAuthUser(session.data?.user);
 }
 
 async function logout(): Promise<void> {
-  try {
-    await api("/api/auth/logout", { method: "POST" });
-  } catch {
-    // Server may already be gone — clear the local session anyway.
-  }
-  clearToken();
-  setSession(null);
+  await authClient.signOut();
 }
 
 const ACTIONS: AuthActions = {
   register,
   login,
-  loginWithGoogle,
   updateProfile,
   logout,
 };
-const AuthContext = React.createContext<AuthActions | null>(null);
+const AuthContext = React.createContext<AuthContextValue | null>(null);
+
+type BetterAuthUser = {
+  id?: string;
+  _id?: string;
+  name?: string;
+  email?: string;
+  image?: string | null;
+  photo?: string;
+  phoneNumber?: string;
+  address?: string;
+  role?: UserRole;
+};
+
+function mapBetterAuthUser(user: unknown): AuthUser {
+  const value = (user ?? {}) as BetterAuthUser;
+  if (!value.id && !value._id) {
+    throw new Error("Authentication succeeded but no user was returned.");
+  }
+  return {
+    _id: value.id ?? value._id ?? "",
+    name: value.name ?? "",
+    email: value.email ?? "",
+    photo: value.photo ?? value.image ?? "",
+    phoneNumber: value.phoneNumber ?? "",
+    address: value.address ?? "",
+    role: value.role ?? "customer",
+  };
+}
 
 /**
- * Reads the JWT session from the Express API on mount, then exposes the
- * signed-in user to the navbar, forms and private routes.
+ * Reads the Better Auth session and exposes the signed-in user.
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  React.useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const data = await api<{ user: AuthUser }>("/api/auth/me");
-        if (!cancelled) setSession(data.user);
-      } catch {
-        clearToken();
-        if (!cancelled) setSession(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: session, isPending } = authClient.useSession();
+  const user: AuthUser | null | undefined = isPending
+    ? undefined
+    : session?.user
+      ? mapBetterAuthUser(session.user)
+      : null;
+  const value = React.useMemo(
+    () => ({ user, ...ACTIONS }),
+    [user]
+  );
 
   return (
-    <AuthContext.Provider value={ACTIONS}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );
 }
 
 export function useAuth(): AuthContextValue {
-  const actions = React.useContext(AuthContext);
-  if (!actions) throw new Error("useAuth must be used within <AuthProvider>");
-  const user = React.useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot
-  );
-  return React.useMemo(() => ({ user, ...actions }), [user, actions]);
+  const value = React.useContext(AuthContext);
+  if (!value) throw new Error("useAuth must be used within <AuthProvider>");
+  return value;
 }

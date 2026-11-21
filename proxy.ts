@@ -1,26 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-
-const API_URL =
-  process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5050";
-
-/**
- * Asks the API to validate the JWT cookie and return the user's role.
- * The secret never leaves the server — middleware just gets the verdict.
- */
-async function fetchRole(token: string): Promise<string | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/auth/verify`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { role?: string };
-    return data.role ?? null;
-  } catch {
-    return null;
-  }
-}
+import { auth } from "@/lib/auth";
 
 function isSafePath(path: string | null): path is string {
   return Boolean(path && path.startsWith("/") && !path.startsWith("//"));
@@ -34,7 +13,6 @@ function isSafePath(path: string | null): path is string {
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const token = request.cookies.get("access_token")?.value ?? null;
 
   const isPrivate =
     pathname.startsWith("/dashboard") ||
@@ -44,7 +22,17 @@ export async function proxy(request: NextRequest) {
   const isAuthPage = pathname === "/login" || pathname === "/register";
   if (!isPrivate && !isAuthPage) return NextResponse.next();
 
-  const role = token ? await fetchRole(token) : null;
+  let role: string | null = null;
+  try {
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+    role = session
+      ? (session.user as { role?: string }).role ?? "customer"
+      : null;
+  } catch {
+    role = null;
+  }
 
   if (isPrivate) {
     if (!role) {
