@@ -69,16 +69,15 @@ export const API_URL =
  * request (`credentials: "include"`) and surfaces the server's error
  * message as a thrown `Error`. Used by every authenticated feature module.
  *
- * In production all browser requests use same-origin paths proxied by
- * `next.config.ts` (`/backend-api/:path*`), so the cookie is set on the
- * frontend domain. In development requests go straight to the backend.
+ * Browser requests always use same-origin paths proxied by `next.config.ts`
+ * (`/backend-api/:path*`), so cookies are consistently stored on the frontend
+ * domain in both development and production.
  */
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res: Response;
-  const url =
-    process.env.NODE_ENV === "production"
-      ? "/backend-api" + path.replace(/^\/api/, "")
-      : `${API_URL}${path}`;
+  // Always use the same-origin Next.js rewrite so auth cookies are
+  // stored for the frontend host in both development and production.
+  const url = "/backend-api" + path.replace(/^\/api/, "");
   try {
     res = await fetch(url, {
       ...options,
@@ -138,8 +137,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Restore the session once on mount.
+  // Restore the session once on mount. When returning from Google OAuth,
+  // the one-time ticket exchange must run first; otherwise an initial /me
+  // 401 could race with the exchange and overwrite the authenticated user.
   React.useEffect(() => {
+    const hasGoogleExchangeTicket =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("exchange");
+
+    if (hasGoogleExchangeTicket) {
+      setUser(null);
+      return;
+    }
+
     let cancelled = false;
     void (async () => {
       const restored = await refreshUser();
@@ -233,16 +243,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * Starts the Google OAuth flow on the same-origin backend rewrite. The
-   * backend handles the OAuth redirect, exchanges the code, sets the
-   * httpOnly session cookie on the frontend origin via the exchange ticket
-   * flow, and redirects back to `/login?exchange=<ticket>`. The JWT is
-   * never exposed in the URL or in localStorage.
+   * Start OAuth on the backend's own origin so its oauth_state cookie is
+   * available to the backend callback. The callback returns a short-lived
+   * ticket to the frontend, which exchanges it through /backend-api.
    */
   const loginWithGoogle = React.useCallback(() => {
-     // OAuth navigates to the separate Express route and must replace the page.
-     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = "/backend-api/auth/google";
+    window.location.href = "/auth/google";
   }, []);
 
   const logout = React.useCallback(async (): Promise<void> => {
