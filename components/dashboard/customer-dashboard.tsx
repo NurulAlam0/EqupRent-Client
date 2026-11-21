@@ -855,6 +855,19 @@ export function CustomerDashboardView() {
     };
   }, [user?.email, user?.role]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") !== "google") return;
+    toast.success("Signed in with Google successfully!");
+    params.delete("auth");
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (query ? `?${query}` : "")
+    );
+  }, []);
+
   const section =
     pathname === "/dashboard/my-rentals"
       ? "rentals"

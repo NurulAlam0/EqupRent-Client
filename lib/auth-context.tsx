@@ -125,7 +125,7 @@ async function register(input: RegisterInput): Promise<AuthUser> {
     image: photo,
   });
   if (result.error) throw new Error(result.error.message ?? "Registration failed.");
-  return mapBetterAuthUser(result.data?.user);
+  return mapSessionUser(result.data?.user);
 }
 
 async function login(input: LoginInput): Promise<AuthUser> {
@@ -142,7 +142,7 @@ async function login(input: LoginInput): Promise<AuthUser> {
     callbackURL: "/dashboard",
   });
   if (result.error) throw new Error(result.error.message ?? "Sign in failed.");
-  return mapBetterAuthUser(result.data?.user);
+  return mapSessionUser(result.data?.user);
 }
 
 async function updateProfile(input: ProfileInput): Promise<AuthUser> {
@@ -155,7 +155,7 @@ async function updateProfile(input: ProfileInput): Promise<AuthUser> {
   if (result.error) throw new Error(result.error.message ?? "Profile update failed.");
   const session = await authClient.getSession();
   if (session.error) throw new Error(session.error.message ?? "Profile update failed.");
-  return mapBetterAuthUser(session.data?.user);
+  return mapSessionUser(session.data?.user);
 }
 
 function loginWithGoogle() {
@@ -166,7 +166,18 @@ function loginWithGoogle() {
 }
 
 async function logout(): Promise<void> {
-  await authClient.signOut();
+  const result = await authClient.signOut();
+  if (result.error) {
+    throw new Error(result.error.message ?? "Could not sign out.");
+  }
+
+  const response = await fetch("/backend-api/auth/logout", {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(`Could not sign out (${response.status}).`);
+  }
 }
 
 const ACTIONS: AuthActions = {
@@ -190,7 +201,7 @@ type BetterAuthUser = {
   role?: UserRole;
 };
 
-function mapBetterAuthUser(user: unknown): AuthUser {
+function mapSessionUser(user: unknown): AuthUser {
   const value = (user ?? {}) as BetterAuthUser;
   if (!value.id && !value._id) {
     throw new Error("Authentication succeeded but no user was returned.");
@@ -211,11 +222,47 @@ function mapBetterAuthUser(user: unknown): AuthUser {
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
+  const betterAuthUser = session?.user;
+  const [backendUser, setBackendUser] = React.useState<
+    AuthUser | null | undefined
+  >(undefined);
+
+  React.useEffect(() => {
+    if (isPending || betterAuthUser) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/backend-api/auth/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (response.status === 401 || response.status === 403) {
+          if (!cancelled) setBackendUser(null);
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`Could not read the API session (${response.status}).`);
+        }
+        const data = (await response.json()) as { user?: unknown };
+        const user = mapSessionUser(data.user);
+        if (!cancelled) setBackendUser(user);
+      } catch (error) {
+        console.error("Could not load the Express API session:", error);
+        if (!cancelled) setBackendUser(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPending, betterAuthUser]);
+
   const user: AuthUser | null | undefined = isPending
     ? undefined
-    : session?.user
-      ? mapBetterAuthUser(session.user)
-      : null;
+    : betterAuthUser
+      ? mapSessionUser(betterAuthUser)
+      : backendUser;
   const value = React.useMemo(
     () => ({ user, ...ACTIONS }),
     [user]

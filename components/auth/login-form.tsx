@@ -32,6 +32,25 @@ export function LoginForm() {
     if (user) router.replace(getNextPath());
   }, [user, router]);
 
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (!error) return;
+
+    toast.error(
+      error === "google-config"
+        ? "Google sign-in isn't configured on the server."
+        : "Google sign-in failed. Please try again."
+    );
+    params.delete("error");
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (query ? `?${query}` : "")
+    );
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (submitting) return;

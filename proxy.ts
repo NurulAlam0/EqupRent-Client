@@ -1,6 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 
+const API_URL =
+  process.env.BACKEND_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5050";
+
+async function getBackendRole(token: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_URL}/api/auth/verify`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { role?: string };
+    return data.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function isSafePath(path: string | null): path is string {
   return Boolean(path && path.startsWith("/") && !path.startsWith("//"));
 }
@@ -32,6 +52,10 @@ export async function proxy(request: NextRequest) {
       : null;
   } catch {
     role = null;
+  }
+  if (!role) {
+    const token = request.cookies.get("access_token")?.value;
+    if (token) role = await getBackendRole(token);
   }
 
   if (isPrivate) {

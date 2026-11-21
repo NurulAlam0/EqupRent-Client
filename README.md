@@ -11,7 +11,7 @@ Next.js frontend; the Express API runs separately.
 ## Features
 
 - Browse, search, filter, sort, and paginate approved equipment listings.
-- Create an account and sign in with email and password.
+- Create an account and sign in with email/password or Google.
 - Role-based customer, owner, and admin dashboards.
 - Submit equipment for approval and manage listings and rentals.
 - Save favorite equipment and book available items for selected dates.
@@ -25,7 +25,7 @@ Next.js frontend; the Express API runs separately.
 | Area | Technologies |
 | --- | --- |
 | Frontend | Next.js App Router, React, TypeScript, Tailwind CSS |
-| Authentication | Better Auth, email and password |
+| Authentication | Better Auth (email/password), Express API (Google OAuth) |
 | API | Express, TypeScript |
 | Data | MongoDB, Mongoose |
 | Payments | Stripe Checkout |
@@ -61,7 +61,8 @@ Next.js frontend; the Express API runs separately.
    credentials.
 
 3. Start the Express API from its separate repository. Configure its MongoDB
-   and Stripe settings there as required by that project.
+   and Stripe settings there as required by that project. For Google OAuth,
+   configure the callback URL as described below.
 
 4. Start the frontend:
 
@@ -70,6 +71,21 @@ Next.js frontend; the Express API runs separately.
    ```
 
    Open [http://localhost:3000](http://localhost:3000).
+
+## Google OAuth
+
+Keep the Google OAuth credentials in the Express API's private environment.
+For production, configure the API with:
+
+```dotenv
+CLIENT_URL=https://equp-rent-client.vercel.app
+GOOGLE_REDIRECT_URI=https://equp-rent-client.vercel.app/backend-api/auth/google/callback
+```
+
+Add the same `GOOGLE_REDIRECT_URI` value to the OAuth client's authorized
+redirect URIs in Google Cloud, and set `BACKEND_URL` in the frontend's Vercel
+environment to the Express API origin. The callback goes through the frontend
+proxy so the API session cookie is available to the app.
 
 ## Available commands
 
