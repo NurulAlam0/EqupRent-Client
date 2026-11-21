@@ -856,16 +856,8 @@ export function CustomerDashboardView() {
   }, [user?.email, user?.role]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("auth") !== "google") return;
-    toast.success("Signed in with Google successfully!");
-    params.delete("auth");
-    const query = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + (query ? `?${query}` : "")
-    );
+    // Legacy ?auth=google query param has been replaced by the exchange ticket
+    // flow. This block is intentionally left empty and can be removed later.
   }, []);
 
   const section =
@@ -987,11 +979,10 @@ export function CustomerDashboardView() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  active
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${active
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-950/20"
                     : "text-blue-100/80 hover:bg-white/10 hover:text-white"
-                }`}
+                  }`}
               >
                 <item.icon className="size-4" />
                 {item.label}
@@ -1075,11 +1066,10 @@ export function CustomerDashboardView() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${
-                    active
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${active
                       ? "bg-blue-50 text-blue-800"
                       : "text-slate-500 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <item.icon className="size-3.5" />
                   {item.label}

@@ -25,7 +25,7 @@ Next.js frontend; the Express API runs separately.
 | Area | Technologies |
 | --- | --- |
 | Frontend | Next.js App Router, React, TypeScript, Tailwind CSS |
-| Authentication | Better Auth (email/password), Express API (Google OAuth) |
+| Authentication | Express API (JWT, httpOnly cookies, email/password + Google OAuth) |
 | API | Express, TypeScript |
 | Data | MongoDB, Mongoose |
 | Payments | Stripe Checkout |
@@ -45,20 +45,14 @@ Next.js frontend; the Express API runs separately.
    ```
 
 2. Create a private environment file (for example, `.env.local`) in the
-   project root. Add the values for your local API, MongoDB, and Better Auth:
+   project root. Add the values for your local API:
 
    ```dotenv
    BACKEND_URL=http://localhost:5050
    NEXT_PUBLIC_API_URL=http://localhost:5050
-   BETTER_AUTH_URL=http://localhost:3000
-   NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
-   BETTER_AUTH_SECRET=replace-with-a-long-random-secret
-   MONGODB_URI=mongodb://127.0.0.1:27017/rentora
    ```
 
-   Use your own MongoDB connection string and generate a unique secret for
-   `BETTER_AUTH_SECRET`. Keep environment files private and never commit
-   credentials.
+   Keep environment files private and never commit credentials.
 
 3. Start the Express API from its separate repository. Configure its MongoDB
    and Stripe settings there as required by that project. For Google OAuth,

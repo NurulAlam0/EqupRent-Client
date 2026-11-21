@@ -19,7 +19,7 @@ function getNextPath(): string {
 
 export function LoginForm() {
   const router = useRouter();
-  const { login, loginWithGoogle, user } = useAuth();
+  const { login, loginWithGoogle, exchangeGoogleTicket, user } = useAuth();
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -32,11 +32,36 @@ export function LoginForm() {
     if (user) router.replace(getNextPath());
   }, [user, router]);
 
+  // Handle Google OAuth exchange ticket (?exchange=<ticket>) — set by the
+  // backend after the OAuth callback. Exchange it for a session cookie via
+  // the same-origin /backend-api rewrite; the JWT is never in the URL.
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const ticket = params.get("exchange");
     const error = params.get("error");
-    if (!error) return;
 
+    if (ticket) {
+      // Remove the ticket from the URL immediately so a refresh doesn't
+      // re-submit an already-consumed (single-use) ticket.
+      params.delete("exchange");
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (query ? `?${query}` : "")
+      );
+      exchangeGoogleTicket(ticket)
+        .then((session) => {
+          toast.success(`Welcome, ${session.name.split(" ")[0]}!`);
+          router.replace(getNextPath());
+        })
+        .catch(() => {
+          toast.error("Google sign-in failed. Please try again.");
+        });
+      return;
+    }
+
+    if (!error) return;
     toast.error(
       error === "google-config"
         ? "Google sign-in isn't configured on the server."
@@ -49,7 +74,7 @@ export function LoginForm() {
       "",
       window.location.pathname + (query ? `?${query}` : "")
     );
-  }, []);
+  }, [exchangeGoogleTicket, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
