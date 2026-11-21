@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
         destination: `${process.env.BACKEND_URL ?? "http://localhost:5050"}/api/:path*`,
       },
       {
-        source: "/api/:path*",
+        source: "/api/:path((?!auth).*)",
         destination: `${process.env.BACKEND_URL ?? "http://localhost:5050"}/api/:path*`,
       },
     ];
