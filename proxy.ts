@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 const API_URL =
   process.env.BACKEND_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:5050";
+  "https://equip-rent-server-pi.vercel.app";
 
 async function getBackendRole(token: string): Promise<string | null> {
   try {
@@ -27,9 +27,18 @@ function isSafePath(path: string | null): path is string {
 
 /**
  * Route guard (Next 16 "proxy", formerly middleware):
- * - /dashboard/* and /equipment/[id] require a valid JWT; role-gated
+ * - /dashboard/* and /equipment/[id] require a valid session; role-gated
  *   dashboard sections redirect by role
  * - /login and /register bounce already-signed-in users to their dashboard
+ *
+ * Session check order matters. The Express JWT is checked FIRST via the
+ * client-domain `access_token` cookie (set at sign-in alongside the
+ * Better Auth session): it is the authoritative role store, and it is
+ * the only session a Google sign-in has. Better Auth is the fallback
+ * for email sign-ins whose Express sync has not run yet. The
+ * `?auth=google` case is only the first-landing bridge after the
+ * Google redirect — on that landing the client stores a real token,
+ * so every later reload is verified through the cookie above.
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -43,22 +52,25 @@ export async function proxy(request: NextRequest) {
   if (!isPrivate && !isAuthPage) return NextResponse.next();
 
   let role: string | null = null;
-  if (pathname === "/dashboard" && search.includes("auth=google")) {
-    role = "customer";
-  }
-  try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
-    role = session
-      ? (session.user as { role?: string }).role ?? "customer"
-      : null;
-  } catch {
-    role = null;
-  }
+
+  const token = request.cookies.get("access_token")?.value;
+  if (token) role = await getBackendRole(token);
+
   if (!role) {
-    const token = request.cookies.get("access_token")?.value;
-    if (token) role = await getBackendRole(token);
+    try {
+      const session = await auth.api.getSession({
+        headers: request.headers,
+      });
+      role = session
+        ? (session.user as { role?: string }).role ?? "customer"
+        : null;
+    } catch {
+      role = null;
+    }
+  }
+
+  if (!role && pathname === "/dashboard" && search.includes("auth=google")) {
+    role = "customer";
   }
 
   if (isPrivate) {

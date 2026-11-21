@@ -15,6 +15,14 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   database: mongodbAdapter(database),
+  // The client and the Express API are separate Vercel origins; only
+  // these origins may start a Better Auth flow against this app.
+  trustedOrigins: [
+    process.env.BETTER_AUTH_URL,
+    process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+    "https://equp-rent-client.vercel.app",
+    "http://localhost:3000",
+  ].filter((origin): origin is string => Boolean(origin)),
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 6,
