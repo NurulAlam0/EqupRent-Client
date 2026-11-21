@@ -388,7 +388,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       rememberMe: input.keepSignedIn,
       callbackURL: "/dashboard",
     });
-    if (result.error) throw new Error(result.error.message ?? "Sign in failed.");
+    if (result.error) {
+      // Fallback: the account may exist only in the Express store
+      // (seeded owner/admin, or created before the two auth systems
+      // were unified), so Better Auth has no such user. Try Express
+      // login; if it succeeds, create the Better Auth account with
+      // the same credentials so future sign-ins take the normal path.
+      const synced = await ensureExpressSession({
+        name: email.split("@")[0],
+        email,
+        photo: "/image/logo-mark.png",
+        password: input.password,
+        keepSignedIn: input.keepSignedIn,
+      });
+      if (!synced) throw new Error(result.error.message ?? "Sign in failed.");
+      const expressUser = mapSessionUser(synced.user);
+      const signup = await authClient.signUp.email({
+        name: expressUser.name,
+        email,
+        password: input.password,
+        image: expressUser.photo || "/image/logo-mark.png",
+      });
+      if (signup.error) {
+        // The Better Auth account may already exist with a different
+        // password — the Express session is still valid, so proceed.
+        console.warn("Could not create the Better Auth account:", signup.error.message);
+      }
+      storeToken(synced.token, input.keepSignedIn);
+      setJwtUser(expressUser);
+      return expressUser;
+    }
     const betterAuthUser = mapSessionUser(result.data?.user);
 
     const synced = await ensureExpressSession({
