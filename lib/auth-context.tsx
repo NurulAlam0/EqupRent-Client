@@ -69,9 +69,9 @@ export const API_URL =
  * request (`credentials: "include"`) and surfaces the server's error
  * message as a thrown `Error`. Used by every authenticated feature module.
  *
- * In production all browser requests use same-origin paths proxied by
- * `next.config.ts` (`/backend-api/:path*`), so the cookie is set on the
- * frontend domain. In development requests go straight to the backend.
+ * Browser requests always use same-origin paths proxied by `next.config.ts`
+ * (`/backend-api/:path*`), so cookies are consistently stored on the frontend
+ * domain in both development and production.
  */
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res: Response;
@@ -137,8 +137,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Restore the session once on mount.
+  // Restore the session once on mount. When returning from Google OAuth,
+  // the one-time ticket exchange must run first; otherwise an initial /me
+  // 401 could race with the exchange and overwrite the authenticated user.
   React.useEffect(() => {
+    const hasGoogleExchangeTicket =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("exchange");
+
+    if (hasGoogleExchangeTicket) {
+      setUser(null);
+      return;
+    }
+
     let cancelled = false;
     void (async () => {
       const restored = await refreshUser();
