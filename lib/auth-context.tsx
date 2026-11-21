@@ -33,6 +33,7 @@ type ProfileInput = Pick<AuthUser, "name" | "photo" | "phoneNumber" | "address">
 type AuthActions = {
   register: (input: RegisterInput) => Promise<AuthUser>;
   login: (input: LoginInput) => Promise<AuthUser>;
+  loginWithGoogle: () => void;
   updateProfile: (input: ProfileInput) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
@@ -157,6 +158,13 @@ async function updateProfile(input: ProfileInput): Promise<AuthUser> {
   return mapBetterAuthUser(session.data?.user);
 }
 
+function loginWithGoogle() {
+  window.location.href = new URL(
+    "/backend-api/auth/google",
+    window.location.origin
+  ).toString();
+}
+
 async function logout(): Promise<void> {
   await authClient.signOut();
 }
@@ -164,6 +172,7 @@ async function logout(): Promise<void> {
 const ACTIONS: AuthActions = {
   register,
   login,
+  loginWithGoogle,
   updateProfile,
   logout,
 };

@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { FormField } from "@/components/auth/form-field";
+import { GoogleIcon } from "@/components/auth/google-icon";
 
 /** ?next=... set by the route guard, but only for safe local paths. */
 function getNextPath(): string {
@@ -18,7 +19,7 @@ function getNextPath(): string {
 
 export function LoginForm() {
   const router = useRouter();
-  const { login, user } = useAuth();
+  const { login, loginWithGoogle, user } = useAuth();
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -110,6 +111,21 @@ export function LoginForm() {
           {submitting ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
+      <div className="my-3.5 flex items-center gap-3">
+        <span className="h-px flex-1 bg-slate-200" />
+        <span className="text-xs font-semibold text-slate-400">or</span>
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+
+      <button
+        type="button"
+        onClick={loginWithGoogle}
+        className="flex h-11 w-full items-center justify-center gap-3 rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+      >
+        <GoogleIcon className="size-5" />
+        Continue with Google
+      </button>
 
       <p className="mt-4 text-center text-sm text-slate-500">
         Don&apos;t have an account?{" "}
